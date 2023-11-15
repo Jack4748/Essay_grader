@@ -3,9 +3,10 @@ import os
 from dotenv import load_dotenv
 from db import get_db_connection, create_essay_table, create_metrics_table
 import random,asyncio
+from flask_cors import CORS
 
 app = Flask(__name__)
-
+CORS(app)
 # Create the 'uploads' folder if it doesn't exist
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -35,7 +36,6 @@ async def dummy_ml_function(essay_id, file_path):
     await asyncio.sleep(10)
     return example_metrics
 
-# Updates the metrics to the database
 async def update_metrics(essay_id, file_path):
     metrics  =  await dummy_ml_function(essay_id,file_path)
     try:
@@ -62,15 +62,12 @@ async def update_metrics(essay_id, file_path):
         raise e
         
 
-
-#handles the post request
 @app.route('/grade', methods=['POST'])
 async def submit_essay():
     try:
         data = request.get_json()
         title = data.get('title')
         essay = data.get('essay')
-        # Generate a unique filename using the essay_id
         with connection.cursor() as cursor:
             cursor.execute("SELECT essay_id FROM essay_db ORDER BY essay_id DESC LIMIT 1")
             result = cursor.fetchone()
@@ -82,11 +79,9 @@ async def submit_essay():
         filename = f"essay{essay_id}.txt"
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)  
         
-        # Save the essay to a file
         with open(file_path, 'w+') as file:
             file.write(title + " \n\n " + essay)
 
-        # Store the directory in the database
         with connection.cursor() as cursor:
             cursor.execute("INSERT INTO essay_db (directory,essay_id) VALUES (%s,%s)", (file_path,essay_id))
             connection.commit()
@@ -100,13 +95,10 @@ async def submit_essay():
         return jsonify({'message': 'Error saving file.' + str(e)}), 500
 
 # Handles the get request
-@app.route('/metrics', methods=['GET'])
-def get_essay():
+@app.route('/metrics/<int:essay_id>', methods=['GET'])
+def get_essay(essay_id):
     try:
-        data = request.get_json()
-        essay_id = data.get('essay_id')
-
-        # Retrieve the directory from the database based on essay_id
+        # print(essay_id)
         with connection.cursor() as cursor:
             cursor.execute("SELECT * FROM metrics_db WHERE essay_id = %s", (essay_id,))
             result = cursor.fetchone()
@@ -119,7 +111,9 @@ def get_essay():
                 'organisation': result[3],
                 'language_use': result[4],
                 'Holistic_Score': result[5]
-            }
+            } 
+          
+            
             return jsonify({'metrics': result}), 200
         else:
             return jsonify({'message': 'File not found for the given essay_id.'}), 404
