@@ -1,6 +1,5 @@
 import psycopg2
 
-
 def get_db_connection(url):
     try:
         connection = psycopg2.connect(url)
@@ -8,7 +7,6 @@ def get_db_connection(url):
     except Exception as error:
         print("Error connecting to the database:",error)
         raise error 
-
 
 def create_metrics_table(connection):
     with connection.cursor() as cursor:
@@ -23,7 +21,6 @@ def create_metrics_table(connection):
             )
         """)
     connection.commit()
-
 
 def create_essay_table(connection):
     with connection.cursor() as cursor:
